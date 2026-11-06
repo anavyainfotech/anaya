@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anaya Widget Live Demo</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 40px 20px;
+      background: #fafaf9;
+      color: #18181b;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 80vh;
+      text-align: center;
+    }
+    .card {
+      background: white;
+      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      border: 1px solid #e4e4e7;
+      max-width: 500px;
+    }
+    h1 { font-size: 24px; margin-bottom: 12px; }
+    p { color: #71717a; font-size: 14px; line-height: 1.6; }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #ecfdf5;
+      color: #0ca656;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="badge">Live Storefront Simulation</div>
+    <h1>Look at the bottom right corner!</h1>
+    <p>
+      Anaya's signature radiating star icon is floating right there. Click on it to open the real AI sales assistant and test it!
+    </p>
+  </div>
+
+  <!-- Embed Anaya Widget with signature brand icon -->
+  <script src="/widget.js" data-agent-id="agent_anavyainfotech_com" data-color="#0ca656" data-name="Anaya" defer></script>
+
+</body>
+</html>
