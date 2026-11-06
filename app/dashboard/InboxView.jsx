@@ -29,6 +29,7 @@ import {
 const getBaseConversations = (domainName = "anavyainfotech.com", agent = "Anaya") => [];
 
 export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656", connectedDomain = "anavyainfotech.com", domainId = null }) {
+  const storageKey = `anaya_inbox_${connectedDomain || "default"}`;
   const [conversations, setConversations] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [sortOrder, setSortOrder] = useState("new"); // "new" | "old"
@@ -98,7 +99,8 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
 
         if (connectedDomain) {
           const clean = connectedDomain.replace(/^https?:\/\//i, "").replace(/\/$/, "");
-          query = query.ilike("domain_name", `%${clean}%`);
+          // Support both domain matches or all conversations if domain filter matches
+          query = query.or(`domain_name.ilike.%${clean}%,domain_name.is.null`);
         }
 
         const { data: convs, error } = await query;
@@ -114,30 +116,35 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
             status: c.status || "active",
             handlingMode: c.handling_mode || "ai",
             channel: c.domain_name || "Website Widget",
-            pageVisited: c.page_visited || `https://${connectedDomain}`,
+            pageVisited: c.page_visited || `https://${connectedDomain || "store"}`,
             timestamp: new Date(c.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             unread: c.unread ?? true,
             messages: Array.isArray(c.messages) ? c.messages : []
           }));
 
           setConversations(formatted);
-          setSelectedId(prev => prev || formatted[0]?.id);
+          setSelectedId(prev => (prev && formatted.some(f => f.id === prev)) ? prev : formatted[0]?.id);
         }
-
-        // Realtime listener for incoming messages on any website
-        channel = supabase
-          .channel("realtime-conversations")
-          .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => {
-            loadLiveConversations();
-          })
-          .subscribe();
-
       } catch (err) {
         console.warn("Supabase realtime load note:", err);
       }
     }
 
     loadLiveConversations();
+
+    // Setup realtime subscription
+    (async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        channel = supabase
+          .channel("realtime-conversations")
+          .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, () => {
+            loadLiveConversations();
+          })
+          .subscribe();
+      } catch (_) {}
+    })();
 
     return () => {
       if (channel) channel.unsubscribe();
