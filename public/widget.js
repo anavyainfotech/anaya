@@ -431,6 +431,7 @@
   // Handle User Message Submission
   async function handleUserSubmit(query) {
     if (!query) return;
+    console.log("[Anaya Widget] Submitting message:", query, "to", apiBase + "/api/chat");
 
     const input = document.getElementById("anaya-chat-input");
     if (input) input.value = "";
