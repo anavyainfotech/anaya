@@ -31,6 +31,7 @@ const getBaseConversations = (domainName = "anavyainfotech.com", agent = "Anaya"
 export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656", connectedDomain = "anavyainfotech.com", domainId = null }) {
   const storageKey = `anaya_inbox_${connectedDomain || "default"}`;
   const [conversations, setConversations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedId, setSelectedId] = useState("");
   const [sortOrder, setSortOrder] = useState("new"); // "new" | "old"
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,6 +90,7 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
 
     async function loadLiveConversations() {
       try {
+        setIsLoading(true);
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
         
@@ -104,7 +106,7 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
         }
 
         const { data: convs, error } = await query;
-        if (!error && Array.isArray(convs) && convs.length > 0) {
+        if (!error && Array.isArray(convs)) {
           const formatted = convs.map(c => ({
             id: c.id,
             customer: {
@@ -123,10 +125,12 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
           }));
 
           setConversations(formatted);
-          setSelectedId(prev => (prev && formatted.some(f => f.id === prev)) ? prev : formatted[0]?.id);
+          setSelectedId(prev => (prev && formatted.some(f => f.id === prev)) ? prev : formatted[0]?.id || "");
         }
       } catch (err) {
         console.warn("Supabase realtime load note:", err);
+      } finally {
+        setIsLoading(false);
       }
     }
 
@@ -248,11 +252,52 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Reset to freshly generated realistic domain dataset
-  const handleResetData = () => {
-    const fresh = getBaseConversations(connectedDomain || "yourstore.com", agentName);
-    updateConversations(fresh);
-    setSelectedId(fresh[0].id);
+  // Reset / Refresh Data to sync latest conversations from Supabase
+  const handleResetData = async () => {
+    try {
+      setIsLoading(true);
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      
+      let query = supabase
+        .from("conversations")
+        .select("*")
+        .order("updated_at", { ascending: false });
+
+      if (connectedDomain) {
+        const clean = connectedDomain.replace(/^https?:\/\//i, "").replace(/\/$/, "");
+        query = query.or(`domain_name.ilike.%${clean}%,domain_name.is.null`);
+      }
+
+      const { data: convs, error } = await query;
+      if (!error && Array.isArray(convs)) {
+        const formatted = convs.map(c => ({
+          id: c.id,
+          customer: {
+            name: c.customer_name || "Store Visitor",
+            phone: c.customer_phone || "Not provided",
+            email: c.customer_email || "Not provided",
+            location: c.location || "Online Visitor"
+          },
+          status: c.status || "active",
+          handlingMode: c.handling_mode || "ai",
+          channel: c.domain_name || "Website Widget",
+          pageVisited: c.page_visited || `https://${connectedDomain || "store"}`,
+          timestamp: new Date(c.updated_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          unread: c.unread ?? true,
+          messages: Array.isArray(c.messages) ? c.messages : []
+        }));
+
+        setConversations(formatted);
+        if (formatted.length > 0) {
+          setSelectedId(formatted[0].id);
+        }
+      }
+    } catch (err) {
+      console.warn("Refresh error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -315,7 +360,12 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
 
         {/* Conversation Cards Scroll List with breathing margin */}
         <div className="flex-1 overflow-y-auto p-2.5 space-y-1.5">
-          {filteredConversations.length === 0 ? (
+          {isLoading && conversations.length === 0 ? (
+            <div className="p-8 text-center space-y-2">
+              <RefreshCw className="w-5 h-5 text-stone-400 animate-spin mx-auto" />
+              <p className="text-xs text-stone-500 font-medium">Loading conversations...</p>
+            </div>
+          ) : filteredConversations.length === 0 ? (
             <div className="p-8 text-center space-y-2">
               <MessageSquare className="w-7 h-7 text-stone-300 mx-auto" />
               <p className="text-xs text-stone-500 font-medium">No conversations found</p>

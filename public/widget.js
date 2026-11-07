@@ -12,8 +12,8 @@
   // Ensure original emerald green (#0ca656) by default
   let brandColor = (rawColor && rawColor !== "null" && rawColor !== "undefined") ? rawColor : "#0ca656";
   let agentName = scriptTag?.getAttribute("data-name") || "Anaya";
-  const apiBase = scriptTag?.getAttribute("data-api-base") || (window.location.origin.includes("localhost") ? "http://localhost:3000" : window.location.origin);
-  const targetDomain = scriptTag?.getAttribute("data-domain") || window.location.hostname || "anavyainfotech.com";
+  const apiBase = scriptTag?.getAttribute("data-api-base") || ((typeof window !== "undefined" && window.location.origin.includes("localhost")) ? "http://localhost:3000" : "https://anaya-six.vercel.app");
+  const targetDomain = scriptTag?.getAttribute("data-domain") || (typeof window !== "undefined" ? window.location.hostname : "anavyainfotech.com");
   let domainId = null;
 
   // SVG String of Anaya radiating spark icon
