@@ -486,7 +486,9 @@
           page_visited: window.location.href
         })
       });
+      console.log("[Anaya Widget] Response status:", res.status);
       const data = await res.json();
+      console.log("[Anaya Widget] Response data:", data);
       typingRow.remove();
       if (data.reply) {
         addMessage("assistant", data.reply);
@@ -495,8 +497,9 @@
         addMessage("assistant", "I am having trouble answering right now. Please try again shortly.");
       }
     } catch (err) {
-      typingBubble.remove();
-      addMessage("assistant", "Could not connect to AI server. Please verify your connection.");
+      console.error("[Anaya Widget] Fetch failed:", err);
+      if (typingRow) typingRow.remove();
+      addMessage("assistant", "Could not connect to AI server. Error: " + (err.message || "Network Error"));
     }
   }
 
