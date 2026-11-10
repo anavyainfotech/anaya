@@ -112,11 +112,11 @@ export default function DashboardClient({ user, existingDomain }) {
           supabase
             .from("conversations")
             .select("id, unread", { count: "exact" })
-            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.is.null`),
+            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.ilike.%anaya-six%,domain_name.is.null`),
           supabase
             .from("leads")
             .select("id, status", { count: "exact" })
-            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.is.null`)
+            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.ilike.%anaya-six%,domain_name.is.null`)
         ]);
 
         if (convRes.data) {

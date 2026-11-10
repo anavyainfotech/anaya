@@ -101,8 +101,8 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
 
         if (connectedDomain) {
           const clean = connectedDomain.replace(/^https?:\/\//i, "").replace(/\/$/, "");
-          // Support both domain matches or all conversations if domain filter matches
-          query = query.or(`domain_name.ilike.%${clean}%,domain_name.is.null`);
+          // Support both domain matches, demo page conversations, and unassigned sessions
+          query = query.or(`domain_name.ilike.%${clean}%,domain_name.ilike.%anaya-six%,domain_name.is.null`);
         }
 
         const { data: convs, error } = await query;
