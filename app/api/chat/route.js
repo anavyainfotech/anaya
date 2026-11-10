@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { generateEmbedding, generateChatResponse } from "@/lib/gemini";
+
+// Direct client to ensure seamless DB persistence across CORS and visitor widgets
+function getDbClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  return createSupabaseClient(url, key, {
+    auth: { persistSession: false }
+  });
+}
 
 // CORS Headers to allow any website to chat with the AI server
 const corsHeaders = {
@@ -43,7 +52,7 @@ export async function POST(request) {
 
     const latestUserMessage = messages[messages.length - 1]?.content || "";
     const cleanDomain = (domain || "anavyainfotech.com").replace(/^https?:\/\//i, "").replace(/\/$/, "");
-    const supabase = await createClient();
+    const supabase = getDbClient();
 
     // 1. If domain_id is missing, look it up or auto-register domain for unlimited websites
     if (!domain_id) {
@@ -156,7 +165,7 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
       let convRecord = null;
 
       if (existingConv) {
-        const { data: updated } = await supabase
+        const { data: updated, error: updateErr } = await supabase
           .from("conversations")
           .update({
             messages: formattedLog,
@@ -169,10 +178,11 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
           })
           .eq("id", existingConv.id)
           .select()
-          .single();
-        convRecord = updated;
+          .maybeSingle();
+        if (updateErr) console.error("Conversation update error:", updateErr);
+        convRecord = updated || existingConv;
       } else {
-        const { data: inserted } = await supabase
+        const { data: inserted, error: insertErr } = await supabase
           .from("conversations")
           .insert({
             domain_id: domain_id || null,
@@ -189,7 +199,8 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
             page_visited: page_visited || `https://${cleanDomain}`
           })
           .select()
-          .single();
+          .maybeSingle();
+        if (insertErr) console.error("Conversation insert error:", insertErr);
         convRecord = inserted;
       }
 
@@ -210,7 +221,7 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
           });
       }
     } catch (dbErr) {
-      console.warn("Live DB persistence note:", dbErr.message);
+      console.error("Live DB persistence fatal error:", dbErr);
     }
 
     return NextResponse.json({
