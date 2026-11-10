@@ -136,8 +136,13 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
     const activeSessionId = session_id || `sess_${cleanDomain}_${Date.now()}`;
 
     // 5. LIVE MULTI-WEBSITE PERSISTENCE: Save Conversation & Extract Leads into Supabase
+    let _dbDebug = { step: "init", supabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL, supabaseKey: !!(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY) };
     try {
       const { phone, email } = extractLeadInfo(latestUserMessage);
+      _dbDebug.step = "extractedLead";
+      _dbDebug.activeSessionId = activeSessionId;
+      _dbDebug.cleanDomain = cleanDomain;
+      _dbDebug.domain_id = domain_id || null;
 
       // Build message log formatted for dashboard
       const formattedLog = messages.map((m, idx) => ({
@@ -155,16 +160,24 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
         text: aiReply
       });
 
+      _dbDebug.step = "formattedLog";
+      _dbDebug.messagesCount = formattedLog.length;
+
       // Upsert into `conversations` table
-      const { data: existingConv } = await supabase
+      const { data: existingConv, error: lookupErr } = await supabase
         .from("conversations")
         .select("id, customer_phone, customer_email, messages")
         .eq("session_id", activeSessionId)
         .maybeSingle();
 
+      _dbDebug.step = "lookupDone";
+      _dbDebug.lookupError = lookupErr ? lookupErr.message : null;
+      _dbDebug.existingConvId = existingConv?.id || null;
+
       let convRecord = null;
 
       if (existingConv) {
+        _dbDebug.step = "updating";
         const { data: updated, error: updateErr } = await supabase
           .from("conversations")
           .update({
@@ -179,34 +192,47 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
           .eq("id", existingConv.id)
           .select()
           .maybeSingle();
+        _dbDebug.step = "updateDone";
+        _dbDebug.updateError = updateErr ? { message: updateErr.message, code: updateErr.code, details: updateErr.details, hint: updateErr.hint } : null;
+        _dbDebug.updateSuccess = !!updated;
         if (updateErr) console.error("Conversation update error:", updateErr);
         convRecord = updated || existingConv;
       } else {
+        _dbDebug.step = "inserting";
+        const insertPayload = {
+          domain_id: domain_id || null,
+          domain_name: cleanDomain,
+          session_id: activeSessionId,
+          customer_name: customer_name || (phone ? `Visitor (${phone.slice(-4)})` : "Store Visitor"),
+          customer_phone: phone,
+          customer_email: email,
+          status: "active",
+          handling_mode: "ai",
+          messages: formattedLog,
+          last_message: aiReply,
+          unread: true,
+          page_visited: page_visited || `https://${cleanDomain}`
+        };
+        _dbDebug.insertPayloadKeys = Object.keys(insertPayload);
         const { data: inserted, error: insertErr } = await supabase
           .from("conversations")
-          .insert({
-            domain_id: domain_id || null,
-            domain_name: cleanDomain,
-            session_id: activeSessionId,
-            customer_name: customer_name || (phone ? `Visitor (${phone.slice(-4)})` : "Store Visitor"),
-            customer_phone: phone,
-            customer_email: email,
-            status: "active",
-            handling_mode: "ai",
-            messages: formattedLog,
-            last_message: aiReply,
-            unread: true,
-            page_visited: page_visited || `https://${cleanDomain}`
-          })
+          .insert(insertPayload)
           .select()
           .maybeSingle();
+        _dbDebug.step = "insertDone";
+        _dbDebug.insertError = insertErr ? { message: insertErr.message, code: insertErr.code, details: insertErr.details, hint: insertErr.hint } : null;
+        _dbDebug.insertSuccess = !!inserted;
+        _dbDebug.insertedId = inserted?.id || null;
         if (insertErr) console.error("Conversation insert error:", insertErr);
         convRecord = inserted;
       }
 
+      _dbDebug.step = "complete";
+      _dbDebug.finalConvId = convRecord?.id || null;
+
       // 6. If Lead Info (Phone or Email) Detected -> Save/Update in `leads` Table
       if (phone || email) {
-        await supabase
+        const { error: leadErr } = await supabase
           .from("leads")
           .insert({
             domain_id: domain_id || null,
@@ -219,9 +245,12 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
             status: "new",
             source_page: page_visited || `https://${cleanDomain}`
           });
+        _dbDebug.leadInsertError = leadErr ? leadErr.message : null;
       }
     } catch (dbErr) {
       console.error("Live DB persistence fatal error:", dbErr);
+      _dbDebug.step = "FATAL_ERROR";
+      _dbDebug.fatalError = dbErr?.message || String(dbErr);
     }
 
     return NextResponse.json({
@@ -229,6 +258,7 @@ Guide the visitor, answer inquiries accurately, and if they show high interest i
       model: result.modelUsed,
       session_id: activeSessionId,
       matchedDocsCount: contextDocs.length,
+      _dbDebug,
     }, { headers: corsHeaders });
   } catch (error) {
     console.error("Chat API Error:", error);
