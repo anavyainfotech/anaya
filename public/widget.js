@@ -12,7 +12,16 @@
   // Ensure original emerald green (#0ca656) by default
   let brandColor = (rawColor && rawColor !== "null" && rawColor !== "undefined") ? rawColor : "#0ca656";
   let agentName = scriptTag?.getAttribute("data-name") || "Anaya";
-  const apiBase = (scriptTag && scriptTag.getAttribute("data-api-base")) || "";
+
+  // Auto-detect backend host from the script tag's own src URL (e.g. https://anaya-six.vercel.app)
+  let detectedApiBase = "";
+  if (scriptTag && scriptTag.src) {
+    try {
+      const parsedUrl = new URL(scriptTag.src);
+      detectedApiBase = parsedUrl.origin;
+    } catch (_) {}
+  }
+  const apiBase = scriptTag?.getAttribute("data-api-base") || detectedApiBase || "https://anaya-six.vercel.app";
   const targetDomain = scriptTag?.getAttribute("data-domain") || (typeof window !== "undefined" ? window.location.hostname : "anavyainfotech.com");
   let domainId = null;
 

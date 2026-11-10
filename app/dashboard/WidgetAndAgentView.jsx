@@ -153,9 +153,10 @@ export default function WidgetAndAgentView({
   };
 
   // Generate clean embed code
+  const currentHost = typeof window !== "undefined" && window.location.origin ? window.location.origin : "https://anaya-six.vercel.app";
   const embedCodeSnippet = `<!-- Anaya AI Autonomous Sales Widget -->
 <script
-  src="https://${typeof window !== "undefined" ? window.location.host : "app.anaya-ai.com"}/widget.js"
+  src="${currentHost}/widget.js"
   data-name="${localName}"
   data-color="${localColor}"
   data-position="${widgetPosition}"
