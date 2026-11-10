@@ -150,8 +150,14 @@ export default function InboxView({ agentName = "Anaya", brandColor = "#0ca656",
       } catch (_) {}
     })();
 
+    // Polling fallback every 3 seconds to guarantee instant appearance even if websocket drops
+    const pollInterval = setInterval(() => {
+      loadLiveConversations();
+    }, 3000);
+
     return () => {
       if (channel) channel.unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [connectedDomain]);
 
