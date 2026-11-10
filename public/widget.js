@@ -215,7 +215,7 @@
   `;
   chatWindow.appendChild(messagesList);
 
-  // Inject CSS Keyframes for Pulsing 3-Dot Animation
+  // Inject CSS Keyframes and Responsive Media Queries
   const styleTag = document.createElement("style");
   styleTag.textContent = `
     @keyframes anayaDotPulse {
@@ -232,6 +232,41 @@
     }
     .anaya-dot:nth-child(1) { animation-delay: -0.32s; }
     .anaya-dot:nth-child(2) { animation-delay: -0.16s; }
+
+    /* Mobile Responsive Fix: Clean fullscreen/centered capsule on mobile screens */
+    @media (max-width: 640px) {
+      #anaya-sales-widget-root {
+        right: 16px !important;
+        left: auto !important;
+        bottom: 16px !important;
+      }
+      #anaya-sales-widget-root.anaya-pos-left {
+        left: 16px !important;
+        right: auto !important;
+      }
+      #anaya-sales-widget-root.anaya-opened {
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 12px !important;
+        width: calc(100vw - 24px) !important;
+      }
+      #anaya-widget-window {
+        position: fixed !important;
+        left: 12px !important;
+        right: 12px !important;
+        bottom: 12px !important;
+        width: calc(100vw - 24px) !important;
+        max-width: 440px !important;
+        margin: 0 auto !important;
+        height: min(640px, calc(100dvh - 24px)) !important;
+        max-height: calc(100dvh - 24px) !important;
+        border-radius: 28px !important;
+        transform-origin: bottom center !important;
+      }
+      #anaya-widget-pill {
+        display: none !important;
+      }
+    }
   `;
   document.head.appendChild(styleTag);
 
@@ -387,6 +422,7 @@
   function toggleWidget() {
     isOpen = !isOpen;
     if (isOpen) {
+      container.classList.add("anaya-opened");
       // Dismiss pill if opened
       hidePillBadge();
 
@@ -401,6 +437,7 @@
       chatWindow.style.transform = "translateY(0) scale(1)";
       setTimeout(() => document.getElementById("anaya-chat-input")?.focus(), 150);
     } else {
+      container.classList.remove("anaya-opened");
       // 1. Close chat window
       chatWindow.style.opacity = "0";
       chatWindow.style.pointerEvents = "none";
@@ -542,6 +579,7 @@
           if (pillTextEl) pillTextEl.textContent = c.pillButtonText;
         }
         if (c.widgetPosition === "left") {
+          container.classList.add("anaya-pos-left");
           container.style.right = "auto";
           container.style.left = "24px";
           chatWindow.style.right = "auto";

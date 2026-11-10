@@ -100,6 +100,59 @@ export default function DashboardClient({ user, existingDomain }) {
   // Real-time badge counts for Inbox & Leads (0 until real messages/leads occur)
   const [unreadInboxCount, setUnreadInboxCount] = useState(0);
   const [newLeadsCount, setNewLeadsCount] = useState(0);
+  const [totalConversationsCount, setTotalConversationsCount] = useState(0);
+  const [totalLeadsCount, setTotalLeadsCount] = useState(0);
+
+  // Sync live stats from Supabase
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const cleanDomain = (connectedDomain || "anavyainfotech.com").replace(/^https?:\/\//i, "").replace(/\/$/, "");
+        const [convRes, leadsRes] = await Promise.all([
+          supabase
+            .from("conversations")
+            .select("id, unread", { count: "exact" })
+            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.is.null`),
+          supabase
+            .from("leads")
+            .select("id, status", { count: "exact" })
+            .or(`domain_name.ilike.%${cleanDomain}%,domain_name.is.null`)
+        ]);
+
+        if (convRes.data) {
+          setTotalConversationsCount(convRes.count || convRes.data.length);
+          const unread = convRes.data.filter(c => c.unread).length;
+          setUnreadInboxCount(unread);
+        }
+
+        if (leadsRes.data) {
+          setTotalLeadsCount(leadsRes.count || leadsRes.data.length);
+          const newLeads = leadsRes.data.filter(l => l.status === "new").length;
+          setNewLeadsCount(newLeads);
+        }
+      } catch (err) {
+        console.warn("Error loading dashboard stats:", err);
+      }
+    }
+
+    loadStats();
+
+    // Subscribe to realtime changes
+    const convSub = supabase
+      .channel("dashboard-stat-convs")
+      .on("postgres_changes", { event: "*", schema: "public", table: "conversations" }, loadStats)
+      .subscribe();
+
+    const leadsSub = supabase
+      .channel("dashboard-stat-leads")
+      .on("postgres_changes", { event: "*", schema: "public", table: "leads" }, loadStats)
+      .subscribe();
+
+    return () => {
+      convSub.unsubscribe();
+      leadsSub.unsubscribe();
+    };
+  }, [connectedDomain]);
 
   // Clean up any lingering widget instances if previously loaded
   useEffect(() => {
@@ -594,8 +647,8 @@ export default function DashboardClient({ user, existingDomain }) {
                     </div>
                   </div>
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-2xl font-bold font-poppins text-stone-950">0</span>
-                    <span className="text-[10.5px] text-stone-400 font-medium font-poppins">--</span>
+                    <span className="text-2xl font-bold font-poppins text-stone-950">{totalConversationsCount}</span>
+                    <span className="text-[10.5px] text-emerald-600 font-medium font-poppins">{unreadInboxCount > 0 ? `${unreadInboxCount} new` : "Live"}</span>
                   </div>
                   <p className="text-[10px] text-stone-400 font-poppins truncate">AI chats handled</p>
                 </div>
@@ -609,8 +662,8 @@ export default function DashboardClient({ user, existingDomain }) {
                     </div>
                   </div>
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-2xl font-bold font-poppins text-stone-950">0</span>
-                    <span className="text-[10.5px] text-stone-400 font-medium font-poppins">0%</span>
+                    <span className="text-2xl font-bold font-poppins text-stone-950">{totalLeadsCount}</span>
+                    <span className="text-[10.5px] text-stone-400 font-medium font-poppins">{newLeadsCount > 0 ? `${newLeadsCount} new` : "0%"}</span>
                   </div>
                   <p className="text-[10px] text-stone-400 font-poppins truncate">Verified contacts</p>
                 </div>
